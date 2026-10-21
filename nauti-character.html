@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nauti — Personagem</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        html,
+        body {
+            width: 100vw;
+            height: 100vh;
+            background: #000000;
+            overflow: hidden;
+            display: grid;
+            place-items: center;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            cursor: pointer;
+            touch-action: manipulation;
+        }
+
+        canvas:focus-visible {
+            outline: 2px solid #2dd4bf;
+            outline-offset: -3px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <canvas id="nautiCanvas" role="button" tabindex="0" aria-label="Nauti. Clique ou pressione Enter para brincar."></canvas>
+
+    <script>
+        const canvas = document.getElementById('nautiCanvas');
+        const ctx = canvas.getContext('2d');
+
+        let currentExpression = 'feliz';
+        let baseExpression = 'feliz';
+        let targetLookX = 0;
+        let targetLookY = 0;
+        let currentLookX = 0;
+        let currentLookY = 0;
+
+        let bodyY = 0;
+        let targetBodyY = 0;
+        let bodyVelocityY = 0;
+
+        let scaleX = 1;
+        let scaleY = 1;
+        let scaleVelocityX = 0;
+        let scaleVelocityY = 0;
+
+        let time = 0;
+        let blinkProgress = 0;
+        let isBlinking = false;
+        let blinkTimer = 0;
+
+        let particles = [];
+        let flipStartedAt = 0;
+        const flipDuration = 1450;
+        let pokeCount = 0;
+        let pokeTimer = 0;
+        let interactionTimer = 0;
+        const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+
+        function resizeCanvas() {
+            const width = window.innerWidth;
+            const height = window.innerHeight;
+            canvas.width = width * window.devicePixelRatio;
+            canvas.height = height * window.devicePixelRatio;
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+            ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        // Seguir o cursor do mouse suavemente
+        window.addEventListener('mousemove', (e) => {
+            const x = e.clientX - window.innerWidth / 2;
+            const y = e.clientY - window.innerHeight / 2;
+
+            // Limitado a um raio menor para os olhos ficarem sempre dentro do rosto
+            targetLookX = Math.max(-8, Math.min(8, x / 25));
+            targetLookY = Math.max(-6, Math.min(6, y / 25));
+
+            if (currentExpression === 'dormindo' || currentExpression === 'feliz') {
+                setExpression('curioso', false);
+                window.clearTimeout(interactionTimer);
+                interactionTimer = window.setTimeout(() => setExpression(baseExpression, false), 1500);
+            }
+        });
+
+        window.addEventListener('mouseleave', () => {
+            targetLookX = 0;
+            targetLookY = 0;
+        });
+
+        function poke() {
+            pokeCount += 1;
+            window.clearTimeout(pokeTimer);
+            window.clearTimeout(interactionTimer);
+
+            if (pokeCount >= 3) {
+                pokeCount = 0;
+                startFlip();
+                emitParticles('star', 7);
+                return;
+            }
+
+            applyImpulse(0, 15, 0.85, 1.22);
+            const expression = pokeCount === 1 ? 'animado' : 'surpreso';
+            setExpression(expression, false);
+            if (pokeCount === 1) emitParticles('star', 5);
+            interactionTimer = window.setTimeout(() => setExpression(baseExpression, false), 1200);
+            pokeTimer = window.setTimeout(() => { pokeCount = 0; }, 1500);
+        }
+
+        canvas.addEventListener('click', poke);
+        canvas.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                poke();
+            }
+        });
+
+        function applyImpulse(dY, dVY, sX, sY) {
+            bodyVelocityY += dVY;
+            scaleX = sX;
+            scaleY = sY;
+        }
+
+        function startFlip() {
+            window.clearTimeout(interactionTimer);
+            if (reducedMotion.matches) {
+                setExpression('tonto', false);
+                interactionTimer = window.setTimeout(() => setExpression(baseExpression, false), 3000);
+                return;
+            }
+            flipStartedAt = performance.now();
+            setExpression('pirueta', false);
+        }
+
+        function setExpression(expr, updateBase = true) {
+            currentExpression = expr;
+            if (updateBase) {
+                baseExpression = expr;
+                window.clearTimeout(interactionTimer);
+            }
+        }
+
+        function emitParticles(kind, count) {
+            if (reducedMotion.matches) return;
+            const centerX = window.innerWidth / 2;
+            const centerY = window.innerHeight / 2;
+            for (let i = 0; i < count; i++) {
+                const spread = (Math.random() - 0.5) * 96;
+                particles.push({
+                    kind,
+                    x: centerX + spread,
+                    y: centerY - 30 + Math.random() * 24,
+                    size: 7 + Math.random() * 8,
+                    alpha: 1,
+                    vx: spread * 0.018 + (Math.random() - 0.5) * 1.2,
+                    vy: -1.2 - Math.random() * 1.5,
+                    spin: (Math.random() - 0.5) * 0.12
+                });
+            }
+        }
+
+        // Estrela Guia da Norti Design
+        function drawNortiStar(ctx, cx, cy, outerRadius, innerRadius, color, alpha = 1) {
+            ctx.save();
+            ctx.globalAlpha = alpha;
+            let rot = Math.PI / 2 * 3;
+            let step = Math.PI / 4;
+
+            ctx.beginPath();
+            ctx.moveTo(cx, cy - outerRadius);
+            for (let i = 0; i < 4; i++) {
+                let x = cx + Math.cos(rot) * outerRadius;
+                let y = cy + Math.sin(rot) * outerRadius;
+                ctx.lineTo(x, y);
+                rot += step;
+
+                x = cx + Math.cos(rot) * innerRadius;
+                y = cy + Math.sin(rot) * innerRadius;
+                ctx.lineTo(x, y);
+                rot += step;
+            }
+            ctx.lineTo(cx, cy - outerRadius);
+            ctx.closePath();
+
+            ctx.fillStyle = color;
+            ctx.shadowColor = color;
+            ctx.shadowBlur = 8;
+            ctx.fill();
+            ctx.restore();
+        }
+
+        function animate() {
+            const motionScale = reducedMotion.matches ? 0.55 : 1;
+            time += 0.035;
+
+            currentLookX += (targetLookX - currentLookX) * 0.08;
+            currentLookY += (targetLookY - currentLookY) * 0.08;
+
+            const k = 0.12;
+            const damping = 0.78;
+            let forceY = (targetBodyY - bodyY) * k;
+            bodyVelocityY = (bodyVelocityY + forceY) * damping;
+            bodyY += bodyVelocityY;
+
+            scaleVelocityX = (scaleVelocityX + (1 - scaleX) * 0.15) * 0.75;
+            scaleX += scaleVelocityX;
+
+            scaleVelocityY = (scaleVelocityY + (1 - scaleY) * 0.15) * 0.75;
+            scaleY += scaleVelocityY;
+            const flipProgress = flipStartedAt
+                ? Math.min(1, (performance.now() - flipStartedAt) / flipDuration)
+                : 0;
+            // Uma volta completa no sentido horário (para a direita).
+            // A curva suaviza a saída e a aterrissagem para o Nauti voltar
+            // exatamente à orientação inicial, sem terminar inclinado.
+            const easedFlipProgress = flipProgress * flipProgress * (3 - 2 * flipProgress);
+            const spinAngle = easedFlipProgress * Math.PI * 2;
+            if (flipProgress >= 1) {
+                flipStartedAt = 0;
+                if (currentExpression === 'pirueta') {
+                    setExpression('tonto', false);
+                    emitParticles('star', 7);
+                    interactionTimer = window.setTimeout(() => setExpression(baseExpression, false), 3000);
+                }
+            }
+
+            blinkTimer++;
+            if (!reducedMotion.matches && blinkTimer > 220 && !isBlinking) {
+                if (Math.random() < 0.06) {
+                    isBlinking = true;
+                    blinkTimer = 0;
+                }
+            }
+
+            if (isBlinking) {
+                blinkProgress += 0.28;
+                if (blinkProgress >= 1) {
+                    blinkProgress = 1;
+                    isBlinking = false;
+                }
+            } else if (blinkProgress > 0) {
+                blinkProgress -= 0.28;
+                if (blinkProgress <= 0) blinkProgress = 0;
+            }
+
+            const w = window.innerWidth;
+            const h = window.innerHeight;
+            const centerX = w / 2;
+            const centerY = h / 2;
+
+            ctx.fillStyle = '#000000';
+            ctx.fillRect(0, 0, w, h);
+
+            let floatY = Math.sin(time * 1.6) * 7 * motionScale + bodyY;
+            let breathY = Math.sin(time * 2.2) * 0.018 * motionScale;
+
+            // Pequeno impulso para cima durante a cambalhota, como se ele
+            // ganhasse impulso antes de girar e aterrissasse suavemente.
+            if (flipProgress > 0) {
+                floatY -= Math.sin(flipProgress * Math.PI) * 30;
+                floatY += Math.sin(flipProgress * Math.PI * 2) * 3;
+            }
+
+            if (currentExpression === 'animado' || currentExpression === 'dancando') {
+                floatY = Math.abs(Math.sin(time * (currentExpression === 'dancando' ? 3.5 : 4.5))) * -20 * motionScale + bodyY;
+            } else if (currentExpression === 'curioso' || currentExpression === 'pensativo') {
+                floatY -= Math.sin(time * 2.4) * 2 * motionScale;
+            } else if (currentExpression === 'dormindo') {
+                floatY = Math.sin(time * 0.9) * 2.5 * motionScale + bodyY;
+            }
+
+            let headTilt = currentLookX * 0.012;
+            if (currentExpression === 'curioso' || currentExpression === 'pensativo') headTilt += 0.18;
+            if (currentExpression === 'triste') headTilt -= 0.09;
+            if (currentExpression === 'dancando') headTilt += Math.sin(time * 3.5) * 0.22 * motionScale;
+            if (currentExpression === 'animado') headTilt += Math.sin(time * 4) * 0.07 * motionScale;
+            // Depois de girar, ele fica balançando levemente enquanto está tonto.
+            if (currentExpression === 'tonto') headTilt += Math.sin(time * 11) * 0.075 * motionScale;
+
+            ctx.save();
+            const dance = currentExpression === 'dancando';
+            const danceBeat = Math.sin(time * 3.5);
+            const danceSway = dance ? danceBeat * 18 * motionScale : 0;
+            const danceSquash = dance ? Math.max(0, Math.cos(time * 3.5)) * 0.07 * motionScale : 0;
+            const danceScaleX = dance ? 1 + danceSquash : 1;
+            const danceScaleY = dance ? 1 - danceSquash : 1;
+            ctx.translate(centerX + danceSway, centerY + floatY + 8);
+            ctx.rotate(headTilt + spinAngle);
+            ctx.scale(scaleX * danceScaleX * (1 - breathY), scaleY * danceScaleY * (1 + breathY));
+
+            // Sombra no chão
+            const shadowGrad = ctx.createRadialGradient(0, 72, 4, 0, 72, 65);
+            shadowGrad.addColorStop(0, 'rgba(45, 212, 191, 0.1)');
+            shadowGrad.addColorStop(0.5, 'rgba(255, 255, 255, 0.03)');
+            shadowGrad.addColorStop(1, 'transparent');
+            ctx.fillStyle = shadowGrad;
+            ctx.beginPath();
+            ctx.ellipse(0, 72, 58, 14, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Tentáculos (Perninhas)
+            const legPositions = [-36, -12, 12, 36];
+            legPositions.forEach((xPos, idx) => {
+                const dancing = currentExpression === 'dancando';
+                const legPhase = time * 3.5 + (idx < 2 ? 0 : Math.PI);
+                const legWave = Math.sin(dancing ? legPhase : time * 2.5 + idx * 0.9)
+                    * (dancing ? 13 * motionScale : 4.5 * motionScale);
+                ctx.save();
+                ctx.translate(xPos, 40);
+                if (dancing) ctx.rotate(Math.sin(legPhase) * 0.4 * motionScale);
+
+                const legGrad = ctx.createLinearGradient(0, -10, 0, 18);
+                legGrad.addColorStop(0, '#f7f5f0');
+                legGrad.addColorStop(1, '#e3decb');
+
+                ctx.fillStyle = legGrad;
+                ctx.beginPath();
+                ctx.arc(0, legWave, 13.5, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
+                ctx.beginPath();
+                ctx.arc(0, legWave + 3, 10, 0, Math.PI);
+                ctx.fill();
+
+                ctx.restore();
+            });
+
+            // Corpo Principal
+            const headRadius = 66;
+            const bodyGrad = ctx.createRadialGradient(-18, -24, 6, 0, 0, headRadius + 18);
+            bodyGrad.addColorStop(0, '#ffffff');
+            bodyGrad.addColorStop(0.45, '#f7f4eb');
+            bodyGrad.addColorStop(0.82, '#e9e3d3');
+            bodyGrad.addColorStop(1, '#d5cca8');
+
+            ctx.fillStyle = bodyGrad;
+            ctx.beginPath();
+            ctx.arc(0, -8, headRadius, Math.PI * 0.82, Math.PI * 0.18, false);
+            ctx.quadraticCurveTo(headRadius + 2, 46, 0, 48);
+            ctx.quadraticCurveTo(-headRadius - 2, 46, -headRadius * 0.98, -8);
+            ctx.closePath();
+            ctx.fill();
+
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
+            ctx.lineWidth = 1.2;
+            ctx.stroke();
+
+            // Estrela na testa
+            drawNortiStar(ctx, 0, -headRadius + 12, 7.5, 2.8, '#2dd4bf', 0.95);
+
+            // Olhos e Bochechas
+            const eyeOffsetX = 22;
+            const eyeOffsetY = -2;
+            const eyeLookX = currentExpression === 'dormindo' ? 0 : currentLookX;
+            const eyeLookY = currentExpression === 'dormindo' ? 0
+                : (currentExpression === 'pensativo' ? -4 + currentLookY * 0.2 : currentLookY);
+
+            const blushAlpha = currentExpression === 'envergonhado' ? 0.55 : 0.26;
+            ctx.fillStyle = `rgba(251, 113, 133, ${blushAlpha})`;
+            ctx.beginPath();
+            ctx.ellipse(-eyeOffsetX - 8 + eyeLookX * 0.15, eyeOffsetY + 16, 9.5, 5.5, 0, 0, Math.PI * 2);
+            ctx.ellipse(eyeOffsetX + 8 + eyeLookX * 0.15, eyeOffsetY + 16, 9.5, 5.5, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            if (currentExpression === 'dormindo') {
+                ctx.strokeStyle = '#18181b';
+                ctx.lineWidth = 2.8;
+                ctx.lineCap = 'round';
+                ctx.beginPath();
+                ctx.arc(-eyeOffsetX, eyeOffsetY + 6, 7, Math.PI * 0.15, Math.PI * 0.85);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.arc(eyeOffsetX, eyeOffsetY + 6, 7, Math.PI * 0.15, Math.PI * 0.85);
+                ctx.stroke();
+            } else if (currentExpression === 'tonto') {
+                [-eyeOffsetX, eyeOffsetX].forEach((ex) => {
+                    ctx.save();
+                    ctx.translate(ex, eyeOffsetY);
+                    ctx.strokeStyle = '#18181b';
+                    ctx.lineWidth = 2.2;
+                    ctx.beginPath();
+                    ctx.arc(0, 0, 6, time, time + Math.PI * 1.65);
+                    ctx.stroke();
+                    ctx.restore();
+                });
+            } else if (currentExpression === 'apaixonado') {
+                [-eyeOffsetX, eyeOffsetX].forEach((ex) => {
+                    ctx.save();
+                    ctx.translate(ex + eyeLookX, eyeOffsetY + eyeLookY);
+                    ctx.fillStyle = '#fb7185';
+                    ctx.beginPath();
+                    ctx.moveTo(0, 7);
+                    ctx.bezierCurveTo(-12, -1, -7, -9, 0, -3);
+                    ctx.bezierCurveTo(7, -9, 12, -1, 0, 7);
+                    ctx.fill();
+                    ctx.restore();
+                });
+            } else {
+                [-eyeOffsetX, eyeOffsetX].forEach((ex) => {
+                    ctx.save();
+                    ctx.translate(ex + eyeLookX, eyeOffsetY + eyeLookY);
+
+                    if (currentExpression === 'surpreso') {
+                        ctx.beginPath();
+                        ctx.ellipse(0, 0, 7, 9, 0, 0, Math.PI * 2);
+                        ctx.fillStyle = '#18181b';
+                        ctx.fill();
+                        ctx.fillStyle = '#ffffff';
+                        ctx.beginPath();
+                        ctx.arc(-2, -3, 2.5, 0, Math.PI * 2);
+                        ctx.fill();
+                    } else if (blinkProgress > 0.5) {
+                        ctx.beginPath();
+                        ctx.moveTo(-7, 0);
+                        ctx.lineTo(7, 0);
+                        ctx.strokeStyle = '#18181b';
+                        ctx.lineWidth = 2.6;
+                        ctx.stroke();
+                    } else {
+                        ctx.beginPath();
+                        ctx.arc(0, 0, 8.5, 0, Math.PI * 2);
+                        ctx.fillStyle = '#18181b';
+                        ctx.fill();
+
+                        ctx.fillStyle = '#ffffff';
+                        ctx.beginPath();
+                        ctx.arc(-2.5, -3, 2.8, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                    ctx.restore();
+                });
+            }
+
+            // Boca
+            ctx.strokeStyle = '#18181b';
+            ctx.lineWidth = 2.2;
+            ctx.lineCap = 'round';
+            const mouthY = eyeOffsetY + 15 + eyeLookY * 0.3;
+
+            ctx.beginPath();
+            if (currentExpression === 'feliz' || currentExpression === 'animado' || currentExpression === 'apaixonado') {
+                ctx.arc(eyeLookX * 0.2, mouthY - 3, 5.2, Math.PI * 0.1, Math.PI * 0.9);
+                ctx.stroke();
+            } else if (currentExpression === 'surpreso') {
+                ctx.beginPath();
+                ctx.ellipse(0, mouthY, 3.2, 4.2, 0, 0, Math.PI * 2);
+                ctx.stroke();
+            } else if (currentExpression === 'triste' || currentExpression === 'error') {
+                ctx.arc(0, mouthY + 5, 5.2, Math.PI * 1.1, Math.PI * 1.9);
+                ctx.stroke();
+            } else if (currentExpression === 'envergonhado') {
+                ctx.beginPath();
+                ctx.moveTo(-3, mouthY);
+                ctx.quadraticCurveTo(0, mouthY + 2, 3, mouthY);
+                ctx.stroke();
+            } else if (currentExpression === 'tonto') {
+                ctx.beginPath();
+                ctx.arc(0, mouthY - 1, 3.5, 0, Math.PI * 2);
+                ctx.stroke();
+            } else if (currentExpression === 'dormindo') {
+                ctx.moveTo(-2.5, mouthY);
+                ctx.lineTo(2.5, mouthY);
+                ctx.stroke();
+            } else {
+                ctx.arc(eyeLookX * 0.2 + 1, mouthY - 2, 4.5, Math.PI * 0.1, Math.PI * 0.85);
+                ctx.stroke();
+            }
+
+            ctx.restore();
+
+            // Partículas de sono e reações
+            if (currentExpression === 'dormindo') {
+                if (!reducedMotion.matches && Math.random() < 0.03) {
+                    particles.push({
+                        kind: 'sleep',
+                        x: centerX + 38,
+                        y: centerY - 28,
+                        size: 11 + Math.random() * 6,
+                        alpha: 1,
+                        vy: -0.65,
+                        vx: 0.3,
+                        spin: 0
+                    });
+                }
+            }
+            if (currentExpression === 'dancando' && !reducedMotion.matches && Math.random() < 0.015) {
+                emitParticles('star', 2);
+            }
+
+            particles = particles.filter((particle) => particle.alpha > 0);
+            particles.forEach((particle) => {
+                particle.x += particle.vx;
+                particle.y += particle.vy;
+                particle.alpha -= particle.kind === 'sleep' ? 0.008 : 0.018;
+                if (particle.kind === 'star') {
+                    ctx.save();
+                    ctx.translate(particle.x, particle.y);
+                    ctx.rotate(particle.spin * (1 - particle.alpha) * 30);
+                    drawNortiStar(ctx, 0, 0, particle.size, particle.size * 0.42, '#2dd4bf', particle.alpha);
+                    ctx.restore();
+                    return;
+                }
+                if (particle.kind === 'heart') {
+                    ctx.save();
+                    ctx.translate(particle.x, particle.y);
+                    ctx.scale(particle.size / 10, particle.size / 10);
+                    ctx.globalAlpha = Math.max(0, particle.alpha);
+                    ctx.fillStyle = '#fb7185';
+                    ctx.beginPath();
+                    ctx.moveTo(0, 7);
+                    ctx.bezierCurveTo(-12, -1, -7, -9, 0, -3);
+                    ctx.bezierCurveTo(7, -9, 12, -1, 0, 7);
+                    ctx.fill();
+                    ctx.restore();
+                    return;
+                }
+                ctx.font = `600 ${particle.size}px sans-serif`;
+                ctx.fillStyle = `rgba(45, 212, 191, ${Math.max(0, particle.alpha)})`;
+                ctx.fillText('z', particle.x, particle.y);
+            });
+
+            requestAnimationFrame(animate);
+        }
+
+        // Ponteiro global para o seu app.js controlar o personagem de dentro do iframe
+        window.Nauti = Object.freeze({
+            setState(status) {
+                const map = {
+                    idle: 'feliz',
+                    listening: 'curioso',
+                    thinking: 'pensativo',
+                    responding: 'feliz',
+                    curious: 'curioso',
+                    happy: 'feliz',
+                    excited: 'animado',
+                    surprised: 'surpreso',
+                    sad: 'triste',
+                    sleeping: 'dormindo',
+                    error: 'error',
+                    playful: 'animado',
+                    dizzy: 'tonto',
+                    love: 'apaixonado',
+                    shy: 'envergonhado',
+                    flip: 'animado',
+                    dance: 'dancando'
+                };
+                if (!Object.hasOwn(map, status)) {
+                    throw new TypeError(`Estado do Nauti inválido: ${status}`);
+                }
+                setExpression(map[status]);
+                if (status === 'excited' || status === 'surprised') {
+                    applyImpulse(0, -18, 0.85, 1.22);
+                }
+                if (status === 'excited') emitParticles('star', 9);
+                if (status === 'happy') emitParticles('star', 5);
+                if (status === 'love') emitParticles('heart', 7);
+                if (status === 'dance') emitParticles('star', 6);
+                if (status === 'flip') startFlip();
+            }
+        });
+
+        requestAnimationFrame(animate);
+    </script>
+</body>
+
+</html>

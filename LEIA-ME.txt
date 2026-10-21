@@ -1,0 +1,7 @@
+NAUTI — ASSISTENTE LOCAL
+
+Para instruções atualizadas de instalação, execução e controle do personagem,
+consulte LEIA-ME.md.
+
+Abra index.html com o Live Server do VS Code. O personagem animado aparece
+integrado à conversa e acompanha o estado real das requisições ao Ollama.

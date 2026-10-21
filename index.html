@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#000000">
+  <title>Nauti — conversa local</title>
+  <link rel="stylesheet" href="css/style.css">
+  <script src="js/config.js" defer></script>
+  <script src="js/app.js" defer></script>
+</head>
+<body>
+  <main class="app" aria-label="Conversa com Nauti">
+    <header class="topbar">
+      <div class="brand-mark" aria-hidden="true">✦</div>
+      <div class="brand-copy">
+        <div class="brand-name">Nauti <span>·</span> Norti Design</div>
+        <div class="brand-subtitle">Uma conversa tranquila, no teu computador.</div>
+      </div>
+      <div class="connection" id="connection" role="status"><span class="connection-dot"></span><span id="connection-text">Conferindo conexão</span></div>
+    </header>
+
+    <section class="character-stage" aria-label="Nauti, personagem animado">
+      <iframe class="character-frame" id="nauti-character" src="nauti-character.html" title="Personagem animado Nauti"></iframe>
+    </section>
+
+    <section class="conversation" id="conversation" aria-live="polite" aria-label="Mensagens">
+      <div class="welcome" id="welcome">
+        <div class="welcome-star" aria-hidden="true">✧</div>
+        <h1>Oi, eu sou o Nauti.</h1>
+        <p>Podemos trocar uma ideia ou conversar sobre design. Por onde começamos?</p>
+      </div>
+    </section>
+
+    <div class="thinking-row" id="thinking-row" hidden>
+      <span class="thinking-dot" aria-hidden="true"></span>
+      <span>Deixa eu pensar nisso</span>
+      <span class="elapsed" id="elapsed">0,0 s</span>
+    </div>
+
+    <form class="composer" id="composer">
+      <label class="visually-hidden" for="message-input">Tua mensagem</label>
+      <textarea id="message-input" rows="1" maxlength="2000" placeholder="Escreve uma mensagem…" autocomplete="off"></textarea>
+      <button class="send-button" id="send-button" type="submit" aria-label="Enviar mensagem" title="Enviar">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 12 20 4.5l-4.2 15-3.1-6.2L4.5 12Z"></path><path d="m12.7 13.3 7.3-8.8"></path></svg>
+      </button>
+    </form>
+
+    <footer class="footer">
+      <button class="text-button" id="clear-button" type="button">Começar conversa nova</button>
+      <span>As mensagens são processadas localmente pelo Ollama.</span>
+    </footer>
+  </main>
+  <div class="toast" id="toast" role="status" hidden></div>
+</body>
+</html>
